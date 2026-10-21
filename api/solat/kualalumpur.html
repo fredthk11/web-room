@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Waktu Solat Kuala Lumpur</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .emerald-gradient { background: linear-gradient(135deg, #064e3b 0%, #022c22 100%); }
+        .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .active-prayer { background: rgba(16, 185, 129, 0.2); border-color: rgba(16, 185, 129, 0.5); }
+    </style>
+</head>
+<body class="bg-[#011612] text-slate-100 min-h-screen">
+
+    <!-- Navigation -->
+    <header class="bg-[#022c22]/80 backdrop-blur-md sticky top-0 z-50 border-b border-emerald-900/50">
+        <div class="container mx-auto px-4 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <a href="../index.html" class="text-emerald-500 hover:text-emerald-400 transition-colors" title="Back to Page">
+                    <i class="fa-solid fa-grip-vertical text-2xl"></i>
+                </a>
+                <h1 class="text-xl font-extrabold tracking-tight text-emerald-500">SOLATPAGE</h1>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8">
+
+        <!-- Hero: Countdown -->
+        <section class="emerald-gradient rounded-[2.5rem] p-8 md:p-16 mb-12 shadow-2xl shadow-emerald-950/50 relative overflow-hidden text-center">
+            <div class="relative z-10">
+                <div class="inline-flex items-center gap-2 bg-black/20 px-4 py-2 rounded-full text-xs font-bold text-emerald-400 mb-6 tracking-widest uppercase">
+                    <i class="fa-solid fa-location-dot"></i>
+                    <span>Kuala Lumpur</span>
+                </div>
+
+                <h2 class="text-slate-400 text-lg md:text-xl font-medium mb-2">Seterusnya: <span id="nextPrayerName" class="text-white font-bold">---</span></h2>
+                <div id="countdown" class="text-6xl md:text-8xl font-black tracking-tighter mb-6">00:00:00</div>
+
+                <p id="currentDate" class="text-emerald-500/80 font-medium"></p>
+            </div>
+
+            <div class="absolute -top-24 -right-24 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl"></div>
+            <div class="absolute -bottom-24 -left-24 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl"></div>
+        </section>
+
+        <!-- Today's Times Grid -->
+        <section class="mb-12">
+            <div class="flex items-center justify-between mb-8">
+                <h3 class="text-2xl font-bold flex items-center gap-3">
+                    <i class="fa-solid fa-clock text-emerald-500"></i>
+                    Waktu Solat Hari Ini
+                </h3>
+                <span class="text-xs font-bold text-slate-500 uppercase tracking-widest bg-slate-900 px-3 py-1 rounded-lg border border-slate-800">Rasmi JAKIM</span>
+            </div>
+
+            <div id="prayerGrid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+                <p class="col-span-full text-center py-10 text-slate-600 italic">Memuatkan waktu solat...</p>
+            </div>
+        </section>
+
+        <!-- Verse of the Day -->
+        <section>
+            <div class="flex items-center justify-between mb-8">
+                <h3 class="text-2xl font-bold flex items-center gap-3">
+                    <i class="fa-solid fa-book-quran text-emerald-500"></i>
+                    Ayat Hari Ini
+                </h3>
+            </div>
+            <div class="glass p-8 rounded-[2rem] text-center border border-emerald-900/20">
+                <p class="text-xl italic text-slate-400 mb-4">“Sesungguhnya solat itu adalah satu ketetapan yang diwajibkan atas orang-orang yang beriman, yang tertentu waktunya.”</p>
+                <p class="font-bold text-emerald-400">— Surah An-Nisa, Ayah 103</p>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="mt-20 py-10 border-t border-emerald-900/30 text-center text-slate-500 text-sm">
+        <p>Data dikuasakan oleh WaktuSolat.app &amp; JAKIM</p>
+        <p class="mt-2">&copy; 2026 SolatPage Portfolio. For study purposes.</p>
+    </footer>
+
+    <script>
+        const API_BASE = 'https://api.waktusolat.app/v2/solat';
+        const ZONE = 'WLY01';              // Kuala Lumpur, Putrajaya
+        const TZ = 'Asia/Kuala_Lumpur';
+        const LABELS = ['Imsak', 'Subuh', 'Syuruk', 'Zohor', 'Asar', 'Maghrib', 'Isyak'];
+
+        let timerInterval = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            updateDate();
+            fetchPrayerTimes();
+        });
+
+        // Day of month in Kuala Lumpur, regardless of the device's timezone
+        function klDay(offsetDays = 0) {
+            const d = new Date(Date.now() + offsetDays * 86400000);
+            return Number(new Intl.DateTimeFormat('en-GB', { timeZone: TZ, day: 'numeric' }).format(d));
+        }
+
+        async function fetchPrayerTimes() {
+            try {
+                const res = await fetch(`${API_BASE}/${ZONE}`);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+
+                const today = klDay();
+                const todayData = data.prayers.find(p => p.day === today);
+                if (!todayData) throw new Error('Data hari ini tiada');
+
+                // Imsak is 10 minutes (600 seconds) before Subuh
+                const times = [
+                    todayData.fajr - 600, todayData.fajr, todayData.syuruk,
+                    todayData.dhuhr, todayData.asr, todayData.maghrib, todayData.isha
+                ];
+
+                // Tomorrow's Imsak, for the countdown after Isyak
+                const tomorrow = klDay(1);
+                const tomorrowData = tomorrow > today ? data.prayers.find(p => p.day === tomorrow) : null;
+                const nextImsak = tomorrowData ? tomorrowData.fajr - 600 : times[0] + 86400;
+
+                renderPrayerTimes(times);
+                startCountdown(times, nextImsak);
+            } catch (err) {
+                console.error('Fetch error', err);
+                document.getElementById('prayerGrid').innerHTML =
+                    '<p class="col-span-full text-center py-10 text-red-400">Waktu solat tidak dapat dimuatkan. Sila muat semula halaman.</p>';
+            }
+        }
+
+        function renderPrayerTimes(times) {
+            const grid = document.getElementById('prayerGrid');
+            grid.innerHTML = '';
+
+            times.forEach((time, index) => {
+                const timeStr = new Date(time * 1000).toLocaleTimeString('ms-MY', {
+                    hour: '2-digit', minute: '2-digit', hour12: true, timeZone: TZ
+                });
+
+                const card = document.createElement('div');
+                card.className = 'glass p-6 rounded-[2rem] text-center border border-emerald-900/20 transition-all hover:scale-105';
+                card.id = `prayer-${index}`;
+                card.innerHTML = `
+                    <p class="text-xs font-bold text-emerald-500 uppercase tracking-widest mb-2">${LABELS[index]}</p>
+                    <p class="text-2xl font-black">${timeStr}</p>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function startCountdown(times, nextImsak) {
+            clearInterval(timerInterval);
+
+            const tick = () => {
+                const now = Math.floor(Date.now() / 1000);
+                let nextIndex = times.findIndex(t => t > now);
+                let target;
+
+                if (nextIndex === -1) {
+                    // After Isyak: count down to tomorrow's Imsak
+                    if (now >= nextImsak) {
+                        // A new day has started, so load fresh times
+                        clearInterval(timerInterval);
+                        updateDate();
+                        fetchPrayerTimes();
+                        return;
+                    }
+                    target = nextImsak;
+                    document.getElementById('nextPrayerName').innerText = 'Imsak (Besok)';
+                } else {
+                    target = times[nextIndex];
+                    document.getElementById('nextPrayerName').innerText = LABELS[nextIndex];
+                }
+
+                document.querySelectorAll('#prayerGrid .glass').forEach(el => el.classList.remove('active-prayer'));
+                const activeCard = document.getElementById(`prayer-${nextIndex}`);
+                if (activeCard) activeCard.classList.add('active-prayer');
+
+                const diff = target - now;
+                const hours = Math.floor(diff / 3600);
+                const mins = Math.floor((diff % 3600) / 60);
+                const secs = diff % 60;
+
+                document.getElementById('countdown').innerText =
+                    `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+            };
+
+            tick();
+            timerInterval = setInterval(tick, 1000);
+        }
+
+        function updateDate() {
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: TZ };
+            document.getElementById('currentDate').innerText = new Date().toLocaleDateString('ms-MY', options);
+        }
+    </script>
+</body>
+</html>
